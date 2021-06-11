@@ -1,0 +1,166 @@
+---
+title: "Combining Fruit NIR and Size Data"
+author: "Jimmy Larson"
+date: "6/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This file describes the process for combining NIR absorbance and diameter data for fruit measured as a part of a project to predict fruitlet abscission rates following a chemical thinner application in the spring of 2021. For this study, a chemical thinner was applied on May 19. Twenty fruitlet clusters from 5 trees were sampled from a block of 'Rome' apples on the following dates: 
+
+* May 18
+
+* May 20
+
+* May 24
+
+* May 27
+
+* June 1
+
+On each collection date, each fruit had it's diameter (mm) measured with calipers, weighed (g), and Vis/NIR spectra captured with a Felix F750 handheld spectrometer.
+
+Herewithin, the two scripts are described that result in the creation of a full dataset with each fruit's measurement date, rep, cluster, fruit, diameter, weight and spectra. The first file ("clean_NIR_size_data") adds measurement dates, extracts information from NIR saved file name and combines individual measurement dates into one file. Following manual matching of the size and NIR datasets in excel by fruit number columns, ("merge_files") joins the matched file with the original NIR dataset.
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+## packages----
+library(tidyverse)
+library(lubridate)
+## read in data ----
+nir1 <- read_csv("data/2021/rome/felix/meas1/meas1_absorbance.csv")
+nir2 <- read_csv("data/2021/rome/felix/meas2/meas2_absorbance.csv")
+nir3 <- read_csv("data/2021/rome/felix/meas3/meas3_absorbance.csv")
+nir4 <- read_csv("data/2021/rome/felix/meas4/meas4_absorbance.csv")
+nir5 <- read_csv("data/2021/rome/felix/meas5/meas5_absorbance.csv")
+size1 <- read_csv("data/2021/rome/sizeData/destructive_meas_5_18_21.csv")
+size2 <- read_csv("data/2021/rome/sizeData/destructive_meas_5_20_21.csv")
+size3 <- read_csv("data/2021/rome/sizeData/destructive_meas_5_24_21.csv")
+size4 <- read_csv("data/2021/rome/sizeData/destructive_meas_5_27_21.csv")
+size5 <- read_csv("data/2021/rome/sizeData/destructive_meas_6_1_21.csv")
+```
+
+## Cleaning NIR and Size Data
+
+Before combining data, dates were added to each NIR data frame...
+
+```{r, warning=FALSE}
+## add date----
+nir1 %>%
+  mutate(measDate = ymd(20210518)) -> nir1
+nir2 %>% 
+  mutate(measDate = ymd(20210520)) -> nir2
+nir3 %>% 
+  mutate(measDate = ymd(20210524)) -> nir3
+nir4 %>% 
+  mutate(measDate = ymd(20210527)) -> nir4
+nir5 %>% 
+  mutate(measDate = ymd(20210601)) -> nir5
+size1 %>%
+  mutate(measDate = ymd(20210518)) -> size1
+size2 %>% 
+  mutate(measDate = ymd(20210520)) -> size2
+size3 %>% 
+  mutate(measDate = ymd(20210524)) -> size3
+size4 %>% 
+  mutate(measDate = ymd(20210527)) -> size4
+size5 %>% 
+  mutate(measDate = ymd(20210601)) -> size5
+```
+
+Then, rep and cluster number were extracted from each filename (factor - Filename) to create a variable of 
+each. This was done using str_extract() within mutate().
+
+```{r, warning=FALSE, message=FALSE}
+## extract rep and cluster info from file name----
+nir1 %>%
+  mutate(rep = str_extract(Filename, "R([1-5])"),
+         cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir1
+nir2 %>%
+  mutate(rep = str_extract(Filename, "R([1-5])"),
+         cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir2
+nir3 %>%
+  mutate(rep = str_extract(Filename, "R([1-5])"),
+         cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir3
+nir4 %>%
+  mutate(rep = str_extract(Filename, "R([1-5])"),
+         cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir4
+nir5 %>%
+  mutate(rep = str_extract(Filename, "R([1-5])"),
+         cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir5
+```
+
+Fruit number, counting up from 1, was added for each cluster mesured. This was done to make it easier to match NIR and diamter data.
+
+```{r, warning=FALSE, message=FALSE}
+nir1 %>%
+  group_by(rep, cluster) %>%
+  mutate(fruit = row_number()) %>%
+  select(rep, cluster, fruit,1:313) -> nir1
+nir2 %>%
+  group_by(rep, cluster) %>%
+  mutate(fruit = row_number()) %>%
+  select(rep, cluster, fruit,1:313) -> nir2
+nir3 %>%
+  group_by(rep, cluster) %>%
+  mutate(fruit = row_number()) %>%
+  select(rep, cluster, fruit,1:313) -> nir3
+nir4 %>%
+  group_by(rep, cluster) %>%
+  mutate(fruit = row_number()) %>%
+  select(rep, cluster, fruit,1:313) -> nir4
+nir5 %>%
+  group_by(rep, cluster) %>%
+  mutate(fruit = row_number()) %>%
+  select(rep, cluster, fruit,1:313) -> nir5
+```
+
+Each NIR and size date data frame was then combined with rbind(), then wrote to a .csv fie.
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+## combine dates into NIR and size dataframes----
+nir <- rbind(nir1, nir2, nir3, nir4, nir5)
+size <- rbind(size1, size2, size3, size4, size5)
+size %>%
+  drop_na() %>%
+  select(measDate, rep, cluster, fruit, diam, weight)-> size
+## write csv files----
+write_csv(nir, "data/2021/rome/nir_absorbance.csv")
+write_csv(size, "data/2021/rome/fruit_size.csv")
+```
+
+## Merging data 
+
+The manually matched and NIR data frames are first read in...
+
+```{r, warning=FALSE, message=FALSE}
+## read in data----
+matched <- read_csv("data/2021/rome/file_to_merge_size_NIR.csv")
+nir <- read_csv("data/2021/rome/nir_absorbance.csv")
+```
+
+left_join() is used to merge the two data frames
+
+```{r, warning=FALSE, message=FALSE}
+## join data----
+dataSet <- left_join(matched, nir, by = "Filename")
+```
+
+The merged dataset is then written to a .csv file
+
+```{r, warning=FALSE, message=FALSE}
+## select columns----
+dataSet %>%
+  rename(measDate = measDate.x,
+         rep = rep.x,
+         cluster = cluster.x,
+         fruit = fruit.x) %>%
+  select(measDate, rep, cluster, fruit, diam, weight, 14:321) -> dataSet
+## write .csv file----
+write_csv(dataSet, "data/2021/rome/destructive_meas_full_dataset.csv")
+```
+

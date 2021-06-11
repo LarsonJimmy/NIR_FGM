@@ -1,35 +1,8 @@
----
-title: "Clean Fruit NIR Absorbance and Diamter Data"
-author: "Jimmy Larson"
-date: "6/9/2021"
-output: html_document
----
+# NIR FGM: clean NIR and diameter data - Honeycrisp
+# author: Jimmy Larson
+# created: 6.8.21
+# last edited: 6.9.21
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## Introduction
-
-This file describes the process for combining NIR absorbance and diameter data for fruit measured as a part of a project to predict fruitlet abscission rates following a chemical thinner application in the spring of 2021. Fruit diameter taken with calipers at it's widest point and NIR spectra was captured with a FELIX F750 Vis/NIR handheld spectrometer for each fruit. Chemical thinner was applied on May 2 to a block of 'Honeycrisp' apples. Data was collected on the following dates:
-
-* April 28
-
-* May 1
-
-* May 5
-
-* May 7
-
-* May 9 
-
-* May 11
-
-* May 14
-
-NIR absorbance data was exported to a csv file using the F750 data viewer program. The spectra for each individual fruit is a row in a data frame for each measurement date, which were each read in, along with fruit diameters.
-
-```{r, echo=FALSE, warning=FALSE, include=FALSE}
 ## packages----
 library(tidyverse)
 library(lubridate)
@@ -42,12 +15,7 @@ nir5 <- read_csv("data/2021/honeycrisp/felix/meas5_absorbance.csv")
 nir6 <- read_csv("data/2021/honeycrisp/felix/meas6_absorbance.csv")
 nir7 <- read_csv("data/2021/honeycrisp/felix/meas7_absorbance.csv")
 diam <- read_csv("data/2021/honeycrisp/diams.csv")
-```
-## Cleaning NIR data
-
-Before combining data, dates were added to each NIR data frame...
-
-```{r, warning=FALSE}
+## add date----
 nir1 %>%
   mutate(measDate = ymd(20210428)) -> nir1
 nir2 %>%
@@ -62,11 +30,7 @@ nir6 %>%
   mutate(measDate = ymd(20210511)) -> nir6
 nir7 %>%
   mutate(measDate = ymd(20210514)) -> nir7
-```
-
-Then, rep and cluster number were extracted from each filename (factor - Filename) to create a variable of each. This was done using str_extract() within mutate().
-
-```{r, warning=FALSE}
+## extract rep and cluster info from file name----
 nir1 %>%
   mutate(rep = str_extract(Filename, "R([1-5])"),
          cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir1
@@ -88,11 +52,7 @@ nir6 %>%
 nir7 %>%
   mutate(rep = str_extract(Filename, "R([1-5])"),
          cluster = str_extract(Filename, "S[:digit:]{1,}(?=_)")) -> nir7
-```
-
-Finally, fruit number, counting up from 1, was added for each cluster mesured. This was done to make it easier to match NIR and diamter data.
-
-```{r, warning=FALSE}
+## add fruit number in cluster----
 nir1 %>%
   group_by(rep, cluster) %>%
   mutate(fruit = row_number()) %>%
@@ -121,27 +81,13 @@ nir7 %>%
   group_by(rep, cluster) %>%
   mutate(fruit = row_number()) %>%
   select(rep, cluster, fruit,1:313) -> nir7
-```
-
-Each NIR date data frame was then combined with rbind().
-
-```{r, warning=FALSE}
+## combine dates for NIR----
 nir <- rbind(nir1, nir2, nir3, nir4, nir5, nir6, nir7)
-```
-
-## Cleaning Fruit Diameter Data
-
-A long form of the fruitlet diameter data was first created...
-
-```{r, warning=FALSE}
+##long form diam data----
 diam %>%
   gather('meas1', 'meas2', 'meas3', 'meas4', 'meas5', 'meas6', 'meas7', key = "meas", value = "diam") %>%
   select(rep, cluster, fruit, meas, diam, persist) -> diam
-```
-
-Dates were then added to the data frame.
-
-```{r, warning=FALSE}
+## add date to diam----
 diam %>%
   mutate(date = case_when(meas == "meas1" ~ ymd(20210428),
                           meas == "meas2" ~ ymd(20210501),
@@ -150,6 +96,6 @@ diam %>%
                           meas == "meas5" ~ ymd(20210509),
                           meas == "meas6" ~ ymd(20210511),
                           meas == "meas7" ~ ymd(20210514))) -> diam
-```
-
-The file then writes a .csv file for all NIR and diameter data
+## write csv files----
+write_csv(nir, "nir_absorbance.csv")
+write_csv(diam, "diam_long.csv")
