@@ -1,17 +1,11 @@
 # NIR FGM: NIR Individual Dates Model Building - Honeycrisp, XGBoost
 # author: Jimmy Larson
 # created: 7.27.21
-# last edited: 9.97.21
+# last edited: 10.5.21
 
 ## load packages----
 library(tidyverse)
-library(lubridate)
-library(caret)
-#install.packages("repr")
-library(repr)
 library(xgboost)
-#install.packages("prodlim")
-library(prodlim)
 ## set seed----
 set.seed(123)
 ## read in data----
@@ -416,76 +410,318 @@ xgbdiff6SmotedCv <- xgb.cv(data = xgbdiff6Smoted,
                            objective = "binary:logistic",
                            prediction = TRUE,
                            metrics = list("error","rmse","auc"))
-## full model prediction metrics----
-meas3Smoted %>%
-  rownames_to_column() -> meas3rows
-meas3rows$rowname <- as.numeric(meas3rows$rowname)
-#### fold1
-xgbMeas3Fold1 <- as.data.frame(c(xgbMeas3cv$folds[[1]]))
-colnames(xgbMeas3Fold1) <- c("rowname")
-Meas3Fold1 <- left_join(xgbMeas3Fold1, meas3rows)
-#### 2
-xgbMeas3Fold2 <- as.data.frame(c(xgbMeas3cv$folds[[2]]))
-colnames(xgbMeas3Fold2) <- c("rowname")
-Meas3Fold2 <- left_join(xgbMeas3Fold2, meas3rows)
-#### fold3
-xgbMeas3Fold3 <- as.data.frame(c(xgbMeas3cv$folds[[3]]))
-colnames(xgbMeas3Fold3) <- c("rowname")
-Meas3Fold3 <- left_join(xgbMeas3Fold3, meas3rows)
-#### fold4
-xgbMeas3Fold4 <- as.data.frame(c(xgbMeas3cv$folds[[4]]))
-colnames(xgbMeas3Fold4) <- c("rowname")
-Meas3Fold4 <- left_join(xgbMeas3Fold4, meas3rows)
-#### fold5
-xgbMeas3Fold5 <- as.data.frame(c(xgbMeas3cv$folds[[5]]))
-colnames(xgbMeas3Fold5) <- c("rowname")
-Meas3Fold5 <- left_join(xgbMeas3Fold5, meas3rows)
-
-
-Meas3folds <- rbind(Meas3Fold1, Meas3Fold2, Meas3Fold3, Meas3Fold4, Meas3Fold5)
-meas3pred <- xgbMeas3cv$pred
-meas3prediction <- as.numeric(meas3pred > 0.5)
-pred3Confusion <- table(meas3prediction, Meas3folds$`meas3Smote$Y`)
-print(pred3Confusion)
-## xgboost variable importance matrix----
-
-
-xgbMeas3 <- xgb.train(params = params, data = xgbMeas3data,  nfold = 5, nrounds = 6)
-Meas3imp <- xgb.importance(feature_names = colnames(meas3[,-1]), model = xgbMeas3)
-xgb.plot.importance(importance_matrix = Meas3imp[1:20])
-Meas3imp %>%
-  filter(Gain >= 0.05) -> Meas3impFeat
-Meas3selecedFeat <- Meas3impFeat$Feature
-meas3 %>%
-  select(persistCode, Meas3selecedFeat) -> meas3selected
-meas3selected <- drop_na(meas3selected)
-meas3selected <- data.matrix(meas3selected)
-xgbMeas3selected <- xgb.DMatrix(meas3selected[,-1], label = meas3selected[,1])
-xgbMeas3select <- xgb.cv(params = params, data = xgbMeas3selected,  nfold = 5, nrounds = 6, metrics = list("error", "auc"))
-
-## manually select wavelengths for model building----
+## XGBoost variable importance for ind. dates with SMOTE----
+### meas1
+xgbMeas1SmotedTrain <- xgb.train(data = xgbMeas1Smoted,
+                           nfold = 5,
+                           nrounds = 3,
+                           max_depth = 4,
+                           eta = .3,
+                           objective = "binary:logistic")
+xgbMeas1SmotedImp <- xgb.importance(feature_names = colnames(meas1Smoted[,-1]), model = xgbMeas1SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas1SmotedImp[1:20])
+xgbMeas1SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas1SmotedImpFeat
+xgbMeas1SmotedSelectedFeat <- xgbMeas1SmotedImpFeat$Feature
+meas1Smoted %>%
+  select(`meas1Smote$Y`, xgbMeas1SmotedSelectedFeat) %>%
+  data.matrix() -> meas1SmotedSelectedMatrix
+xgbMeas1SmotedSelected <- xgb.DMatrix(meas1SmotedSelectedMatrix[,-1], label = meas1SmotedSelectedMatrix[,1])
+xgbMeas1SmotedSelectedCv <- xgb.cv(data = xgbMeas1SmotedSelected,
+                           nfold = 5,
+                           nrounds = 3,
+                           max_depth = 4,
+                           eta = .3,
+                           objective = "binary:logistic",
+                           prediction = TRUE,
+                           metrics = list("error","rmse","auc"))
+### meas2
+xgbMeas2SmotedTrain <- xgb.train(data = xgbMeas2Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbMeas2SmotedImp <- xgb.importance(feature_names = colnames(meas2Smoted[,-1]), model = xgbMeas2SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas2SmotedImp[1:20])
+xgbMeas2SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas2SmotedImpFeat
+xgbMeas2SmotedSelectedFeat <- xgbMeas2SmotedImpFeat$Feature
+meas2Smoted %>%
+  select(`meas2Smote$Y`, xgbMeas2SmotedSelectedFeat) %>%
+  data.matrix() -> meas2SmotedSelectedMatrix
+xgbMeas2SmotedSelected <- xgb.DMatrix(meas2SmotedSelectedMatrix[,-1], label = meas2SmotedSelectedMatrix[,1])
+xgbMeas2SmotedSelectedCv <- xgb.cv(data = xgbMeas2SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
 ### meas3
-NIRlong %>%
-  select(rep, cluster, fruit, persist, wavelength, meas3_absorbance) %>%
-  filter(475 < wavelength & wavelength < 700 | 950 < wavelength & wavelength < 1000) %>%
-  mutate(persistCode = case_when(persist == "no" ~ 0,
-                                 persist == "yes" ~ 1)) %>%
-  spread(wavelength, meas3_absorbance) %>%
-  select(persistCode, 6:97)-> meas3ManSelect
-meas3ManSelect <- as.data.frame(meas3ManSelect)
-colnames(meas3ManSelect)[2:93] <- paste0("nm3_", colnames(meas3ManSelect)[2:93])
-## xboost for manually selected wavelengths----
-meas3ManSelect <- drop_na(meas3ManSelect)
-meas3ManSelectcases <- as.data.frame(table(meas3ManSelect$persistCode))
-sum3ManSelectAbs <- meas3ManSelectcases[1,2]
-sum3ManSelectPer <- meas3ManSelectcases[2,2]
-meas3ManSelect <- data.matrix(meas3ManSelect)
-xgbMeas3ManSelectdata <- xgb.DMatrix(meas3ManSelect[,-1], label = meas3ManSelect[,1])
-params <- list(booster = "gbtree",
-               objective = "binary:logistic",
-               nrounds=6,
-               metrics = list("error","rmse","auc"),
-               scale_pos_weight = sum3ManSelectPer/sum3ManSelectAbs,
-               max_depth = 20, 
-               eta = .3)
-xgbMeas3ManSelectcv <- xgb.cv(data = xgbMeas3ManSelectdata, params = params, nfold = 5, nrounds = 6)
+xgbMeas3SmotedTrain <- xgb.train(data = xgbMeas3Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbMeas3SmotedImp <- xgb.importance(feature_names = colnames(meas3Smoted[,-1]), model = xgbMeas3SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas3SmotedImp[1:20])
+xgbMeas3SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas3SmotedImpFeat
+xgbMeas3SmotedSelectedFeat <- xgbMeas3SmotedImpFeat$Feature
+meas3Smoted %>%
+  select(`meas3Smote$Y`, xgbMeas3SmotedSelectedFeat) %>%
+  data.matrix() -> meas3SmotedSelectedMatrix
+xgbMeas3SmotedSelected <- xgb.DMatrix(meas3SmotedSelectedMatrix[,-1], label = meas3SmotedSelectedMatrix[,1])
+xgbMeas3SmotedSelectedCv <- xgb.cv(data = xgbMeas3SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### meas4
+xgbMeas4SmotedTrain <- xgb.train(data = xgbmeas4Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbMeas4SmotedImp <- xgb.importance(feature_names = colnames(meas4Smoted[,-1]), model = xgbMeas4SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas4SmotedImp[1:20])
+xgbMeas4SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas4SmotedImpFeat
+xgbMeas4SmotedSelectedFeat <- xgbMeas4SmotedImpFeat$Feature
+meas4Smoted %>%
+  select(`meas4Smote$Y`, xgbMeas4SmotedSelectedFeat) %>%
+  data.matrix() -> meas4SmotedSelectedMatrix
+xgbMeas4SmotedSelected <- xgb.DMatrix(meas4SmotedSelectedMatrix[,-1], label = meas4SmotedSelectedMatrix[,1])
+xgbMeas4SmotedSelectedCv <- xgb.cv(data = xgbMeas4SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### meas5
+xgbMeas5SmotedTrain <- xgb.train(data = xgbmeas5Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbMeas5SmotedImp <- xgb.importance(feature_names = colnames(meas5Smoted[,-1]), model = xgbMeas5SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas5SmotedImp[1:20])
+xgbMeas5SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas5SmotedImpFeat
+xgbMeas5SmotedSelectedFeat <- xgbMeas5SmotedImpFeat$Feature
+meas5Smoted %>%
+  select(`meas5Smote$Y`, xgbMeas5SmotedSelectedFeat) %>%
+  data.matrix() -> meas5SmotedSelectedMatrix
+xgbMeas5SmotedSelected <- xgb.DMatrix(meas5SmotedSelectedMatrix[,-1], label = meas5SmotedSelectedMatrix[,1])
+xgbMeas5SmotedSelectedCv <- xgb.cv(data = xgbMeas5SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### meas6
+xgbMeas6SmotedTrain <- xgb.train(data = xgbmeas6Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbMeas6SmotedImp <- xgb.importance(feature_names = colnames(meas6Smoted[,-1]), model = xgbMeas6SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas6SmotedImp[1:20])
+xgbMeas6SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas6SmotedImpFeat
+xgbMeas6SmotedSelectedFeat <- xgbMeas6SmotedImpFeat$Feature
+meas6Smoted %>%
+  select(`meas6Smote$Y`, xgbMeas6SmotedSelectedFeat) %>%
+  data.matrix() -> meas6SmotedSelectedMatrix
+xgbMeas6SmotedSelected <- xgb.DMatrix(meas6SmotedSelectedMatrix[,-1], label = meas6SmotedSelectedMatrix[,1])
+xgbMeas6SmotedSelectedCv <- xgb.cv(data = xgbMeas6SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### meas7
+xgbMeas7SmotedTrain <- xgb.train(data = xgbmeas7Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbMeas7SmotedImp <- xgb.importance(feature_names = colnames(meas7Smoted[,-1]), model = xgbMeas7SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbMeas7SmotedImp[1:20])
+xgbMeas7SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbMeas7SmotedImpFeat
+xgbMeas7SmotedSelectedFeat <- xgbMeas7SmotedImpFeat$Feature
+meas7Smoted %>%
+  select(`meas7Smote$Y`, xgbMeas7SmotedSelectedFeat) %>%
+  data.matrix() -> meas7SmotedSelectedMatrix
+xgbMeas7SmotedSelected <- xgb.DMatrix(meas7SmotedSelectedMatrix[,-1], label = meas7SmotedSelectedMatrix[,1])
+xgbMeas7SmotedSelectedCv <- xgb.cv(data = xgbMeas7SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+
+## XGBoost variable importance for differences in dates with SMOTE----
+### diff1
+xgbDiff1SmotedTrain <- xgb.train(data = xgbdiff1Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbDiff1SmotedImp <- xgb.importance(feature_names = colnames(diff1Smoted[,-1]), model = xgbDiff1SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbDiff1SmotedImp[1:20])
+xgbDiff1SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbDiff1SmotedImpFeat
+xgbDiff1SmotedSelectedFeat <- xgbDiff1SmotedImpFeat$Feature
+diff1Smoted %>%
+  select(`diff1Smote$Y`, xgbDiff1SmotedSelectedFeat) %>%
+  data.matrix() -> diff1SmotedSelectedMatrix
+xgbDiff1SmotedSelected <- xgb.DMatrix(diff1SmotedSelectedMatrix[,-1], label = diff1SmotedSelectedMatrix[,1])
+xgbDiff1SmotedSelectedCv <- xgb.cv(data = xgbDiff1SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### diff2
+xgbDiff2SmotedTrain <- xgb.train(data = xgbdiff2Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbDiff2SmotedImp <- xgb.importance(feature_names = colnames(diff2Smoted[,-1]), model = xgbDiff2SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbDiff2SmotedImp[1:20])
+xgbDiff2SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbDiff2SmotedImpFeat
+xgbDiff2SmotedSelectedFeat <- xgbDiff2SmotedImpFeat$Feature
+diff2Smoted %>%
+  select(`diff2Smote$Y`, xgbDiff2SmotedSelectedFeat) %>%
+  data.matrix() -> diff2SmotedSelectedMatrix
+xgbDiff2SmotedSelected <- xgb.DMatrix(diff2SmotedSelectedMatrix[,-1], label = diff2SmotedSelectedMatrix[,1])
+xgbDiff2SmotedSelectedCv <- xgb.cv(data = xgbDiff2SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### diff3
+xgbDiff3SmotedTrain <- xgb.train(data = xgbdiff3Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbDiff3SmotedImp <- xgb.importance(feature_names = colnames(diff3Smoted[,-1]), model = xgbDiff3SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbDiff3SmotedImp[1:20])
+xgbDiff3SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbDiff3SmotedImpFeat
+xgbDiff3SmotedSelectedFeat <- xgbDiff3SmotedImpFeat$Feature
+diff3Smoted %>%
+  select(`diff3Smote$Y`, xgbDiff3SmotedSelectedFeat) %>%
+  data.matrix() -> diff3SmotedSelectedMatrix
+xgbDiff3SmotedSelected <- xgb.DMatrix(diff3SmotedSelectedMatrix[,-1], label = diff3SmotedSelectedMatrix[,1])
+xgbDiff3SmotedSelectedCv <- xgb.cv(data = xgbDiff3SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### diff4
+xgbDiff4SmotedTrain <- xgb.train(data = xgbdiff4Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbDiff4SmotedImp <- xgb.importance(feature_names = colnames(diff4Smoted[,-1]), model = xgbDiff4SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbDiff4SmotedImp[1:20])
+xgbDiff4SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbDiff4SmotedImpFeat
+xgbDiff4SmotedSelectedFeat <- xgbDiff4SmotedImpFeat$Feature
+diff4Smoted %>%
+  select(`diff4Smote$Y`, xgbDiff4SmotedSelectedFeat) %>%
+  data.matrix() -> diff4SmotedSelectedMatrix
+xgbDiff4SmotedSelected <- xgb.DMatrix(diff4SmotedSelectedMatrix[,-1], label = diff4SmotedSelectedMatrix[,1])
+xgbDiff4SmotedSelectedCv <- xgb.cv(data = xgbDiff4SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### diff5
+xgbDiff5SmotedTrain <- xgb.train(data = xgbdiff5Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbDiff5SmotedImp <- xgb.importance(feature_names = colnames(diff5Smoted[,-1]), model = xgbDiff5SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbDiff5SmotedImp[1:20])
+xgbDiff5SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbDiff5SmotedImpFeat
+xgbDiff5SmotedSelectedFeat <- xgbDiff5SmotedImpFeat$Feature
+diff5Smoted %>%
+  select(`diff5Smote$Y`, xgbDiff5SmotedSelectedFeat) %>%
+  data.matrix() -> diff5SmotedSelectedMatrix
+xgbDiff5SmotedSelected <- xgb.DMatrix(diff5SmotedSelectedMatrix[,-1], label = diff5SmotedSelectedMatrix[,1])
+xgbDiff5SmotedSelectedCv <- xgb.cv(data = xgbDiff5SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
+### diff6
+xgbDiff6SmotedTrain <- xgb.train(data = xgbdiff6Smoted,
+                                 nfold = 5,
+                                 nrounds = 3,
+                                 max_depth = 4,
+                                 eta = .3,
+                                 objective = "binary:logistic")
+xgbDiff6SmotedImp <- xgb.importance(feature_names = colnames(diff6Smoted[,-1]), model = xgbDiff6SmotedTrain)
+xgb.plot.importance(importance_matrix = xgbDiff6SmotedImp[1:20])
+xgbDiff6SmotedImp %>%
+  filter(Gain >= 0.025) -> xgbDiff6SmotedImpFeat
+xgbDiff6SmotedSelectedFeat <- xgbDiff6SmotedImpFeat$Feature
+diff6Smoted %>%
+  select(`diff6Smote$Y`, xgbDiff6SmotedSelectedFeat) %>%
+  data.matrix() -> diff6SmotedSelectedMatrix
+xgbDiff6SmotedSelected <- xgb.DMatrix(diff6SmotedSelectedMatrix[,-1], label = diff6SmotedSelectedMatrix[,1])
+xgbDiff6SmotedSelectedCv <- xgb.cv(data = xgbDiff6SmotedSelected,
+                                   nfold = 5,
+                                   nrounds = 3,
+                                   max_depth = 4,
+                                   eta = .3,
+                                   objective = "binary:logistic",
+                                   prediction = TRUE,
+                                   metrics = list("error","rmse","auc"))
